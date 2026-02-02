@@ -23,9 +23,17 @@ class Command(BaseCommand):
 
         Payment.objects.create(
             user=user,
-            paid_lesson=lesson,
-            amount=300,
-            payment_method=Payment.PAYMENT_METHOD_CASH
+            paid_course=course,
+            amount=1000,
+            payment_method=Payment.PAYMENT_METHOD_TRANSFER,
         )
 
-        self.stdout.write(self.style.SUCCESS("Платежи успешно добавлены."))
+        if lesson:
+            Payment.objects.create(
+                user=user,
+                paid_lesson=lesson,
+                amount=300,
+                payment_method=Payment.PAYMENT_METHOD_CASH,
+            )
+
+            self.stdout.write(self.style.SUCCESS("Платежи успешно добавлены."))
