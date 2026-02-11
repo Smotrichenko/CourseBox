@@ -53,3 +53,32 @@ class UserRegisterSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+
+
+class PaymentCreateSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания платежа"""
+
+    class Meta:
+        model = Payment
+        fields = ("paid_course", "paid_lesson", "amount", "payment_method")
+
+        def validate(self, attrs):
+            paid_course = attrs.get("paid_course")
+            paid_lesson = attrs.get("paid_lesson")
+
+            if not paid_course and not paid_lesson:
+                raise serializers.ValidationError("Нужно указать курс или урок.")
+            if paid_course and paid_lesson:
+                raise serializers.ValidationError(
+                    "Нельзя одновременно выбирать и курс, и урок."
+                )
+
+            return attrs
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    """Сериализатор для вывода платежа"""
+
+    class Meta:
+        model = Payment
+        fields = "__all__"

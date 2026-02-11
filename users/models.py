@@ -61,9 +61,7 @@ class Payment(models.Model):
     )
 
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="payments"
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments"
     )
     payment_date = models.DateTimeField(auto_now_add=True)
 
@@ -72,18 +70,23 @@ class Payment(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="payments"
+        related_name="payments",
     )
     paid_lesson = models.ForeignKey(
         Lesson,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="payments"
+        related_name="payments",
     )
 
     amount = models.PositiveIntegerField()
     payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES)
+
+    strip_product_id = models.CharField(max_length=250, blank=True, null=True)
+    strip_price_id = models.CharField(max_length=250, blank=True, null=True)
+    strip_session_id = models.CharField(max_length=250, blank=True, null=True)
+    payment_url = models.URLField(max_length=1000, blank=True, null=True)
 
     def __str__(self):
         return f"{self.user} - {self.amount} - {self.payment_method}"

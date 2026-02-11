@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "users",
     "materials",
     "django_filters",
+    "drf_yasg",
 ]
 
 REST_FRAMEWORK = {
@@ -117,3 +118,7 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
 }
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY")
+STRIPE_SUCCESS_URL = os.getenv("STRIPE_SUCCESS_URL")
+STRIPE_CANCEL_URL = os.getenv("STRIPE_CANCEL_URL")
