@@ -13,6 +13,7 @@ from materials.serializers import CourseSerializer, LessonSerializer
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
     pagination_class = MaterialsPagination
+    queryset = Course.objects.all()
 
     def get_serializer_context(self):
         context = super().get_serializer_context()
@@ -20,9 +21,10 @@ class CourseViewSet(viewsets.ModelViewSet):
         return context
 
     def get_queryset(self):
-        if self.request.user.groups.filter(name="moderators").exists():
-            return Course.objects.all()
-        return Course.objects.filter(owner=self.request.user)
+        qs = super().get_queryset()
+        if not self.request.user.groups.filter(name="moderators").exists():
+            qs = qs.filter(owner=self.request.user)
+        return qs.order_by("id")
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -44,11 +46,13 @@ class LessonListAPIView(generics.ListAPIView):
     serializer_class = LessonSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = MaterialsPagination
+    queryset = Lesson.objects.all()
 
     def get_queryset(self):
-        if self.request.user.groups.filter(name="moderators").exists():
-            return Lesson.objects.all().order_by("id")
-        return Lesson.objects.filter(owner=self.request.user).order_by("id")
+        qs = super().get_queryset()
+        if not self.request.user.groups.filter(name="moderators").exists():
+            qs = qs.filter(owner=self.request.user)
+        return qs.order_by("id")
 
 
 class LessonCreateAPIView(generics.CreateAPIView):
@@ -82,19 +86,18 @@ class SubscriptionAPIView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, *args, **kwargs):
+    def post(self, request, course_id):
         user = request.user
-        course_id = request.data.get("course_id")
 
-        course_item = get_object_or_404(Course, pk=course_id)
+        course = get_object_or_404(Course, pk=course_id)
 
-        subs_item = Subscription.objects.filter(user=user, course=course_item)
+        subs_qs = Subscription.objects.filter(user=user, course=course)
 
-        if subs_item.exists():
-            subs_item.delete()
+        if subs_qs.exists():
+            subs_qs.delete()
             message = "Подписка удалена."
         else:
-            Subscription.objects.filter(user=user, course=course_item)
+            Subscription.objects.filter(user=user, course=course)
             message = "Подписка добавлена"
 
         return Response({"message": message})

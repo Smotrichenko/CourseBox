@@ -1,9 +1,6 @@
-import re
 from urllib.parse import urlparse
 
 from rest_framework.serializers import ValidationError
-
-URL_REGEX = re.compile(r"https?://[^\s]+")
 
 
 def validate_only_youtube_links(value):
