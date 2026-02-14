@@ -16,6 +16,7 @@ class Course(models.Model):
         upload_to="materials/course_previews/", blank=True, null=True
     )
     description = models.TextField(blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title
