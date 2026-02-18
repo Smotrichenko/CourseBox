@@ -1,25 +1,23 @@
 from celery import shared_task
 
-from django.conf import settings
 from django.core.mail import send_mail
 from django.conf import settings
 
 from materials.models import Course, Subscription
 
 
-@shared_task
+@shared_task(ignore_result=True)
 def send_course_update_email(course_id: int) -> dict:
     """Асихронная рассылка писем подписчикам курса"""
 
     course = Course.objects.filter(id=course_id).first()
     if not course:
-        return {"status": "course_not_found"}
+        return
 
-    subs = Subscription.objects.filter(course=course).select_related("user")
+    emails = Subscription.objects.filter(course=course).values_list("user__email", flat=True)
 
-    emails = [s.user.email for s in subs if s.user.email]
     if not emails:
-        return {"status": "no_subscribers"}
+        return
 
     send_mail(
         subject=f"CourseBox: обновление курса '{course.title}'.",

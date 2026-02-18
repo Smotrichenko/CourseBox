@@ -1,0 +1,2 @@
+## Запуск через Docker Compose
+
