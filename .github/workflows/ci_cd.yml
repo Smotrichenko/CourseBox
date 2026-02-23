@@ -67,15 +67,32 @@ jobs:
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Start ssh-agent and add key
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.SERVER_SSH_KEY }}
-          ssh-passphrase: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+      - name: Start ssh-agent
+        run: |
+          eval "$(ssh-agent -s)"
+
+      - name: Add SSH key (with passphrase)
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
+          SSH_PASSPHRASE: ${{ secrets.SERVER_SSH_PASSPHRASE }}
+        run: |
+          mkdir -p ~/.ssh
+
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          cat > ~/.ssh/askpass.sh << 'EOF'
+          #!/bin/sh
+          echo "$SSH_PASSPHRASE"
+          EOF
+          chmod +x ~/.ssh/askpass.sh
+
+          export SSH_ASKPASS=~/.ssh/askpass.sh
+          export DISPLAY=:0
+          setsid ssh-add ~/.ssh/id_rsa < /dev/null
 
       - name: Add host to known_hosts
         run: |
-          mkdir -p ~/.ssh
           ssh-keyscan -H ${{ secrets.SERVER_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy
@@ -84,6 +101,6 @@ jobs:
             set -e
             cd ${{ secrets.SERVER_PATH }}
             git pull origin main
-            docker compose up -d --build
-            docker compose ps
+            sudo docker compose up -d --build
+            sudo docker compose ps
           "
