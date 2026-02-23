@@ -75,20 +75,28 @@ jobs:
           command_timeout: 15m
           script: |
             set -e
-
             cd ${{ secrets.SERVER_PATH }}
 
             echo "--- fetch/reset ---"
             git fetch origin main
             git reset --hard origin/main
 
-            echo "--- docker compose build/up ---"
-            docker compose up -d --build
+            echo "--- up db + redis ---"
+            docker compose up -d db redis
+
+            echo "--- build backend ---"
+            docker compose build backend
+
+            echo "--- start backend ---"
+            docker compose up -d backend
 
             echo "--- migrations ---"
             docker compose exec -T backend poetry run python manage.py migrate
 
-            echo "--- services ---"
+            echo "--- start celery ---"
+            docker compose up -d celery celery_beat
+
+            echo "--- ps ---"
             docker compose ps
 
             echo "--- backend logs ---"
