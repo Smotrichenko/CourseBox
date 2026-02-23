@@ -1,0 +1,92 @@
+from django.conf import settings
+from django.contrib.auth.base_user import BaseUserManager
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+
+from materials.models import Course, Lesson
+
+
+class UserManager(BaseUserManager):
+    """Нужно для корректного createsuperuser при авторизации по email (без username)"""
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError("Email обязателен")
+
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
+
+        if extra_fields.get("is_staff") is not True:
+            raise ValueError("Superuser должен иметь is_staff=True")
+        if extra_fields.get("is_superuser") is not True:
+            raise ValueError("Superuser должен иметь is_superuser=True")
+
+        return self.create_user(email, password, **extra_fields)
+
+
+class User(AbstractUser):
+    username = None
+
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+    city = models.CharField(max_length=100, blank=True, null=True)
+    avatar = models.ImageField(upload_to="users/avatars/", blank=True, null=True)
+
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = []
+
+    objects = UserManager()
+
+    def __str__(self):
+        return self.email
+
+
+class Payment(models.Model):
+    """Модель для платежей"""
+
+    PAYMENT_METHOD_CASH = "cash"
+    PAYMENT_METHOD_TRANSFER = "transfer"
+
+    PAYMENT_METHOD_CHOICES = (
+        (PAYMENT_METHOD_CASH, "Наличные"),
+        (PAYMENT_METHOD_TRANSFER, "Перевод на счет"),
+    )
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payments"
+    )
+    payment_date = models.DateTimeField(auto_now_add=True)
+
+    paid_course = models.ForeignKey(
+        Course,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+    )
+    paid_lesson = models.ForeignKey(
+        Lesson,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="payments",
+    )
+
+    amount = models.PositiveIntegerField()
+    payment_method = models.CharField(max_length=30, choices=PAYMENT_METHOD_CHOICES)
+
+    strip_product_id = models.CharField(max_length=250, blank=True, null=True)
+    strip_price_id = models.CharField(max_length=250, blank=True, null=True)
+    strip_session_id = models.CharField(max_length=250, blank=True, null=True)
+    payment_url = models.URLField(max_length=1000, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.amount} - {self.payment_method}"
