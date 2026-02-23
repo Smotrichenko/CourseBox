@@ -3,11 +3,37 @@ name: CI/CD
 on:
   push:
     branches:
+      - develop
       - main
 
 jobs:
   test:
     runs-on: ubuntu-latest
+
+    env:
+      SECRET_KEY: "test-secret-key-for-ci"
+      DEBUG: "False"
+
+      NAME: coursebox_test
+      USER: postgres
+      PASSWORD: postgres
+      HOST: 127.0.0.1
+      PORT: "5432"
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: coursebox_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d coursebox_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - name: Checkout repo
@@ -23,6 +49,14 @@ jobs:
 
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi --no-root
+
+      - name: Wait for Postgres
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client
+          until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
+            sleep 1
+          done
 
       - name: Run tests
         run: poetry run python manage.py test
@@ -41,9 +75,6 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
             cd ${{ secrets.SERVER_PATH }}
-
-            git pull
-
+            git pull origin main
             docker compose up -d --build
-
             docker compose ps
