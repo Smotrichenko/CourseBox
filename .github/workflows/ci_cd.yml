@@ -4,38 +4,107 @@ on:
   push:
     branches: [ "develop", "main" ]
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    env:
-      SECRET_KEY: "test-secret-key-for-ci"
-      DEBUG: "False"
-      DB_NAME: "test_db"
-      DB_USER: "test_user"
-      DB_PASSWORD: "test_password"
-      DB_HOST: "localhost"
-      DB_PORT: "5432"
-      REDIS_HOST: "localhost"
-      REDIS_PORT: "6379"
-      REDIS_DB: "0"
+  jobs:
+    test:
+      runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      services:
+        postgres:
+          image: postgres:16-alpine
+          env:
+            POSTGRES_DB: test_db
+            POSTGRES_USER: test_user
+            POSTGRES_PASSWORD: test_password
+          ports:
+            - 5432:5432
+          options: >-
+            --health-cmd="pg_isready -U test_user -d test_db"
+            --health-interval=5s
+            --health-timeout=5s
+            --health-retries=10
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
+      env:
+        SECRET_KEY: "test-secret-key-for-ci"
+        DEBUG: "False"
 
-      - name: Install Poetry
-        run: pip install poetry
+        DB_NAME: "test_db"
+        DB_USER: "test_user"
+        DB_PASSWORD: "test_password"
+        DB_HOST: "127.0.0.1"
+        DB_PORT: "5432"
 
-      - name: Install dependencies
-        run: poetry install --no-interaction --no-ansi --no-root
+        STRIPE_SECRET_KEY: "test"
+        STRIPE_SUCCESS_URL: "http://localhost/"
+        STRIPE_CANCEL_URL: "http://localhost/"
+        EMAIL_HOST_USER: "test@test.com"
+        EMAIL_HOST_PASSWORD: "test"
+        REDIS_HOST: "localhost"
+        REDIS_PORT: "6379"
+        REDIS_DB: "0"
 
-      - name: Run tests
-        run: poetry run python manage.py test
+      steps:
+        - name: Checkout repo
+          uses: actions/checkout@v4
+
+        - name: Set up Python
+          uses: actions/setup-python@v5
+          with:
+            python-version: "3.13"
+
+        - name: Install Poetry
+          run: pip install poetry
+
+        - name: Install dependencies
+          run: poetry install --no-interaction --no-ansi --no-root
+
+        - name: Wait for Postgres
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y postgresql-client
+            until pg_isready -h 127.0.0.1 -p 5432 -U test_user -d test_db; do
+              echo "Postgres is unavailable - sleeping"
+              sleep 2
+            done
+
+        - name: Run migrations
+          run: poetry run python manage.py migrate
+
+        - name: Run tests
+          run: poetry run python manage.py test
+
+
+#jobs:
+#  test:
+#    runs-on: ubuntu-latest
+#    env:
+#      SECRET_KEY: "test-secret-key-for-ci"
+#      DEBUG: "False"
+#      DB_NAME: "test_db"
+#      DB_USER: "test_user"
+#      DB_PASSWORD: "test_password"
+#      DB_HOST: "localhost"
+#      DB_PORT: "5432"
+#      REDIS_HOST: "localhost"
+#      REDIS_PORT: "6379"
+#      REDIS_DB: "0"
+#
+#    steps:
+#      - name: Checkout repo
+#        uses: actions/checkout@v4
+#
+#      - name: Set up Python
+#        uses: actions/setup-python@v5
+#        with:
+#          python-version: "3.13"
+#
+#      - name: Install Poetry
+#        run: pip install poetry
+#
+#      - name: Install dependencies
+#        run: poetry install --no-interaction --no-ansi --no-root
+#
+#      - name: Run tests
+#        run: poetry run python manage.py test
 
   deploy:
     runs-on: ubuntu-latest
