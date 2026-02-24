@@ -2,36 +2,22 @@ name: CI/CD
 
 on:
   push:
+    branches: [ "develop", "main" ]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
     env:
       SECRET_KEY: "test-secret-key-for-ci"
       DEBUG: "False"
-
-      NAME: coursebox_test
-      USER: postgres
-      PASSWORD: postgres
-      HOST: 127.0.0.1
-      PORT: "5432"
-
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: coursebox_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres -d coursebox_test"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+      DB_NAME: "test_db"
+      DB_USER: "test_user"
+      DB_PASSWORD: "test_password"
+      DB_HOST: "localhost"
+      DB_PORT: "5432"
+      REDIS_HOST: "localhost"
+      REDIS_PORT: "6379"
+      REDIS_DB: "0"
 
     steps:
       - name: Checkout repo
@@ -48,56 +34,138 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction --no-ansi --no-root
 
-      - name: Wait for Postgres
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y postgresql-client
-          until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
-            sleep 1
-          done
-
       - name: Run tests
         run: poetry run python manage.py test
 
   deploy:
     runs-on: ubuntu-latest
     needs: test
-    timeout-minutes: 15
     if: github.ref == 'refs/heads/main'
 
     steps:
-      - name: Deploy via SSH
+      - name: Deploy to server via SSH
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
-          command_timeout: 15m
           script: |
             set -e
+
             cd ${{ secrets.SERVER_PATH }}
 
-            echo "--- fetch/reset ---"
-            git fetch origin main
+            echo "--- git fetch/reset ---"
+            git fetch origin
             git reset --hard origin/main
 
-            echo "--- up db + redis ---"
-            docker compose up -d db redis
+            echo "--- docker compose build/up ---"
+            docker compose up -d --build
 
-            echo "--- build backend ---"
-            docker compose build backend
-
-            echo "--- start backend ---"
-            docker compose up -d backend
-
-            echo "--- migrations ---"
-            docker compose exec -T backend poetry run python manage.py migrate
-
-            echo "--- start celery ---"
-            docker compose up -d celery celery_beat
-
-            echo "--- ps ---"
+            echo "--- docker status ---"
             docker compose ps
 
-            echo "--- backend logs ---"
-            docker compose logs --tail=50 backend
+
+
+#name: CI/CD
+#
+#on:
+#  push:
+#
+#jobs:
+#  test:
+#    runs-on: ubuntu-latest
+#    timeout-minutes: 15
+#
+#    env:
+#      SECRET_KEY: "test-secret-key-for-ci"
+#      DEBUG: "False"
+#
+#      NAME: coursebox_test
+#      USER: postgres
+#      PASSWORD: postgres
+#      HOST: 127.0.0.1
+#      PORT: "5432"
+#
+#    services:
+#      postgres:
+#        image: postgres:16-alpine
+#        env:
+#          POSTGRES_DB: coursebox_test
+#          POSTGRES_USER: postgres
+#          POSTGRES_PASSWORD: postgres
+#        ports:
+#          - 5432:5432
+#        options: >-
+#          --health-cmd="pg_isready -U postgres -d coursebox_test"
+#          --health-interval=10s
+#          --health-timeout=5s
+#          --health-retries=5
+#
+#    steps:
+#      - name: Checkout repo
+#        uses: actions/checkout@v4
+#
+#      - name: Set up Python
+#        uses: actions/setup-python@v5
+#        with:
+#          python-version: "3.13"
+#
+#      - name: Install Poetry
+#        run: pip install poetry
+#
+#      - name: Install dependencies
+#        run: poetry install --no-interaction --no-ansi --no-root
+#
+#      - name: Wait for Postgres
+#        run: |
+#          sudo apt-get update
+#          sudo apt-get install -y postgresql-client
+#          until pg_isready -h 127.0.0.1 -p 5432 -U postgres; do
+#            sleep 1
+#          done
+#
+#      - name: Run tests
+#        run: poetry run python manage.py test
+#
+#  deploy:
+#    runs-on: ubuntu-latest
+#    needs: test
+#    timeout-minutes: 15
+#    if: github.ref == 'refs/heads/main'
+#
+#    steps:
+#      - name: Deploy via SSH
+#        uses: appleboy/ssh-action@v1.2.0
+#        with:
+#          host: ${{ secrets.SERVER_HOST }}
+#          username: ${{ secrets.SERVER_USER }}
+#          key: ${{ secrets.SERVER_SSH_KEY }}
+#          command_timeout: 15m
+#          script: |
+#            set -e
+#            cd ${{ secrets.SERVER_PATH }}
+#
+#            echo "--- fetch/reset ---"
+#            git fetch origin main
+#            git reset --hard origin/main
+#
+#            echo "--- up db + redis ---"
+#            docker compose up -d db redis
+#
+#            echo "--- build backend ---"
+#            docker compose build backend
+#
+#            echo "--- start backend ---"
+#            docker compose up -d backend
+#
+#            echo "--- migrations ---"
+#            docker compose exec -T backend poetry run python manage.py migrate
+#
+#            echo "--- start celery ---"
+#            docker compose up -d celery celery_beat
+#
+#            echo "--- ps ---"
+#            docker compose ps
+#
+#            echo "--- backend logs ---"
+#            docker compose logs --tail=50 backend
