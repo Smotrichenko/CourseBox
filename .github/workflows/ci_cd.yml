@@ -52,10 +52,10 @@ jobs:
         run: pip install poetry
 
       - name: Install dependencies(with lint)
-        run: poetry install --no-interaction --no-ansi --no-root --with lint
+        run: poetry install --no-interaction --no-ansi --no-root --all-groups
 
       - name: Run linters
-        run:
+        run: |
           poetry run black --check .
           poetry run isort --check-only .
           poetry run flake8
